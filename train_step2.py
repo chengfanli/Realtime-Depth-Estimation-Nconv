@@ -4,6 +4,7 @@ from utils import *
 from torch import nn
 import numpy as np
 import torch.optim as optimizer
+from torch.profiler import profile, record_function, ProfilerActivity
 import cv2
 import torch
 import torch.nn.functional as F
@@ -12,9 +13,9 @@ import copy
 import matplotlib.pyplot as plt
 
 output_name = "baseline2"
-step1_checkpoint_name = "BaselineMask/baselineWithMask"
+step1_checkpoint_name = "Test"
 num_train_epoch = 50
-learning_rate = [1e-4]
+learning_rate = [1e-3]
 weight_decay = [1e-7]
 apply_mask = True
 add_noise = False
@@ -40,9 +41,13 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
     loss_train = []
     for epoch in range(num_epoch):
         loss_train = []
+        model.train()
+        
         for batch, data in enumerate(train_loader):
 
             if (batch % 100 == 0 and batch != 0):
+                print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=25))
+
                 print('Batch No. {0}'.format(batch))
 
                 save_depth((estimated_depths[3][0, 0, :, :]).detach().cpu().numpy(), 'tmp/color_output.png')
@@ -50,24 +55,25 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
                 save_depth((gt[0, 0, :, :]).detach().cpu().numpy(), 'tmp/color_gt.png')
                 # save_depth((confidence[0, 0, :, :]).detach().cpu().numpy(), 'tmp/color_confidence.png')
 
-            rgb = data['rgb'].to(device)
-            depth = data['depth'].to(device)
-            gt = data['gt'].to(device)
-            k = data['k'].to(device)
+            with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+                with record_function("model_training"):
+                    rgb = data['rgb'].to(device)
+                    depth = data['depth'].to(device)
+                    gt = data['gt'].to(device)
+                    #k = data['k'].to(device)
 
-            num_itration += 1
+                    num_itration += 1
 
-            model.train()
-            optim.zero_grad()
-            estimated_depths, _ = model(rgb, depth, rgb, depth)
+                    optim.zero_grad()
+                    estimated_depths, _ = model(rgb, depth, rgb, depth)
 
-            loss = calculate_loss_multi_resolution(estimated_depths, gt, use_gradient_loss)
-            loss.requires_grad_().backward()
-            optim.step()
+                    loss = calculate_loss_multi_resolution(estimated_depths, gt, use_gradient_loss)
+                    loss.requires_grad_().backward()
+                    optim.step()
 
-            loss_all.append(loss.item())
-            loss_train.append(loss.item())
-            loss_index.append(num_itration)
+                    loss_all.append(loss.item())
+                    loss_train.append(loss.item())
+                    loss_index.append(num_itration)
 
         print('Epoch No. {0} -- loss = {1:.4f}'.format(
             epoch + 1,
