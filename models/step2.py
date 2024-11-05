@@ -59,7 +59,8 @@ class SETP2_BP_TRAIN(nn.Module):
             
     def forward(self, rgb0, depth0, rgb1, depth1): 
         
-        sparse = self.step1(depth0, depth1)
+        sparse = self.step1(depth0)
+        sparse = torch.cat((sparse, sparse), dim=0) # Hack
         rgb = torch.cat((rgb0, rgb1), dim=0)
 
         rgb0 = self.rgb_encoder0(rgb)
@@ -83,6 +84,7 @@ class SETP2_BP_EXPORT(nn.Module):
         super().__init__() 
 
         self.step1 = SETP1_NCONV()
+        self.step1 = self.step1.compile()
 
         # self.rgb_encoder0 = RGBEncoder(3, 32, 1)
         # self.rgb_encoder1 = RGBEncoder(32, 32, 2)

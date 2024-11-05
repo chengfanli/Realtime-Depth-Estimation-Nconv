@@ -97,11 +97,9 @@ def gradient_x(img):
         img = img.unsqueeze(0)
 
     sobel_kernel_x = torch.tensor(
-        [[[[1, 0, -1],
-           [2, 0, -2],
-           [1, 0, -1]]]], dtype=img.dtype, device=img.device
+        [[[[1, -1]]]], dtype=img.dtype, device=img.device
     )
-    grad_x = F.conv2d(img, sobel_kernel_x, padding=1)
+    grad_x = F.conv2d(img, sobel_kernel_x, padding='same')
     grad_x = grad_x.squeeze(0)
     return grad_x
 
@@ -111,12 +109,11 @@ def gradient_y(img):
         img = img.unsqueeze(0)
 
     sobel_kernel_y = torch.tensor(
-        [[[[1, 2, 1],
-           [0, 0, 0],
-           [-1, -2, -1]]]], dtype=img.dtype, device=img.device
+        [[[[1],
+           [-1]]]], dtype=img.dtype, device=img.device
     )
 
-    grad_y = F.conv2d(img, sobel_kernel_y, padding=1)
+    grad_y = F.conv2d(img, sobel_kernel_y, padding='same')
 
     grad_y = grad_y.squeeze(0)
     return grad_y
@@ -124,10 +121,19 @@ def gradient_y(img):
 
 def gradient_loss(input_img, predicted_img):
     diff = input_img - predicted_img
-
+    #diff = F.normalize(diff)
+    
     grad_x = gradient_x(diff)
     grad_y = gradient_y(diff)
     
+    # print('grad_x.min() =', grad_x.min())
+    # print('grad_x.max() =', grad_x.max())
+    # print('grad_x.sum() =', grad_x.sum())
+
+    # print('grad_y.min() =', grad_y.min())
+    # print('grad_y.max() =', grad_y.max())
+    # print('grad_y.sum() =', grad_y.sum())
+
     grad_x_loss = torch.abs(grad_x).mean()
     grad_y_loss = torch.abs(grad_y).mean()
     
@@ -140,12 +146,17 @@ def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
     reconstructed_img = reconstructed_img.masked_fill(mask, 0)
 
     if (use_gradient_loss):
-        loss_metric = torch.sqrt(F.mse_loss(reconstructed_img, target_img))      
+        loss_metric = torch.sqrt(F.mse_loss(reconstructed_img, target_img))    
         #loss_metric = F.l1_loss(reconstructed_img, target_img)
-        loss_gradient = gradient_loss(target_img, reconstructed_img)
+        loss_gradient = torch.sqrt(gradient_loss(target_img, reconstructed_img))
 
-        return loss_metric * 0.8 + loss_gradient * 0.2
+        # print (f'loss_metric = {loss_metric}')
+        # print (f'loss_gradient = {loss_gradient}')
+
+        return loss_metric + loss_gradient * 5.0
+        #return loss_gradient
         
     loss = F.mse_loss(reconstructed_img, target_img)
-    #rmse_loss = torch.sqrt(loss)
-    return loss
+
+    rmse_loss = torch.sqrt(loss)
+    return rmse_loss
