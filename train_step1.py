@@ -11,7 +11,7 @@ import time
 import copy
 import matplotlib.pyplot as plt
 
-output_name = "Test"
+output_name = "step1_without_mask"
 num_train_epoch = 40
 learning_rate = [1e-2]
 weight_decay = [1e-7]

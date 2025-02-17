@@ -82,14 +82,16 @@ class Evaluator():
         #TODO: Remove Outliers
         #TODO: Convert units to mm
 
-        #TODO: Change how you are applying masks.
 
 
         for i in range(len(self.our_images)):
-            our_image = torch.tensor(self.our_images[i], dtype=torch.float32)
-            gt_image = torch.tensor(self.gt_images[i], dtype=torch.float32)
-            inv_our_image = 1.0 / (our_image + 1e-6)
-            inv_gt_image = 1.0 / (gt_image + 1e-6)
+            our_image = torch.tensor(self.our_images[i] * 1000, dtype=torch.float32)
+            gt_image = torch.tensor(self.gt_images[i] * 1000, dtype=torch.float32)
+            # inv_our_image = 1.0 / (our_image + 1e-6)
+            # inv_gt_image = 1.0 / (gt_image + 1e-6)
+
+            inv_our_image = 1e+6 / (our_image + 1e-6)
+            inv_gt_image = 1e+6 / (gt_image + 1e-6)    
 
 
 
