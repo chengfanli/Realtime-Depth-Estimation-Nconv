@@ -11,11 +11,11 @@ import time
 import copy
 import matplotlib.pyplot as plt
 
-output_name = "step1_without_mask"
+output_name = "step_1"
 num_train_epoch = 40
 learning_rate = [1e-2]
 weight_decay = [1e-7]
-apply_mask = False
+apply_mask = True
 add_noise = False
 use_gradient_loss = True
 use_plateau_lr_sched = True

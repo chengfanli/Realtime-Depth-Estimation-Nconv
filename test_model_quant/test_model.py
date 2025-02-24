@@ -16,7 +16,7 @@ from scipy.ndimage import median_filter
 from models.without_step1.step1 import SETP1_NCONV as step_1
 
 #Modify this
-checkpoint_path = "baseline2"
+checkpoint_path = "Test"
 output_folder = "ours"
 
 test_dataset = TEST_DataLoader_NYU('/oscar/data/jtompki1/cli277/new_spot_data', '1')

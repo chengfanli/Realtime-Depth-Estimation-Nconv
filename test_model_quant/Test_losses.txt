@@ -1,7 +1,7 @@
 
-Model: step_1_alone
-Avg L1 loss: 0.6142, Highest L1 loss: 1.0477
-Avg MSE loss: 1.8792, Highest MSE loss: 5.0998
-Avg RMSE loss: 1.3228, Highest RMSE loss: 2.2583
-Avg iMAE loss: 212890.7031, Highest iMAE loss: 212890.6094
-Avg iRMSE loss: 461400.2812, Highest iRMSE loss: 461400.6250
+Model: Test
+Avg L1 loss: 614.1911, Highest L1 loss: 1047.7233
+Avg MSE loss: 1879204.2500, Highest MSE loss: 5099795.5000
+Avg RMSE loss: 1322.7738, Highest RMSE loss: 2258.2727
+Avg iMAE loss: 212890533888.0000, Highest iMAE loss: 212890566656.0000
+Avg iRMSE loss: 461400735744.0000, Highest iRMSE loss: 461400768512.0000

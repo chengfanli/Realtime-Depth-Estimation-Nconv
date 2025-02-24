@@ -1,7 +1,7 @@
 
 Model: without_mask
-Avg L1 loss: 0.0686, Highest L1 loss: 0.2763
-Avg MSE loss: 0.0751, Highest MSE loss: 0.5465
-Avg RMSE loss: 0.2256, Highest RMSE loss: 0.7393
-Avg iMAE loss: 0.0128, Highest iMAE loss: 0.0379
-Avg iRMSE loss: 0.0676, Highest iRMSE loss: 0.8086
+Avg L1 loss: 68.5704, Highest L1 loss: 276.3250
+Avg MSE loss: 75129.2969, Highest MSE loss: 546514.5625
+Avg RMSE loss: 225.6369, Highest RMSE loss: 739.2662
+Avg iMAE loss: 12.8289, Highest iMAE loss: 37.8805
+Avg iRMSE loss: 67.5632, Highest iRMSE loss: 808.1712

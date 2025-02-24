@@ -79,17 +79,15 @@ class Evaluator():
         avg_imae_loss = 0
         highest_imae_loss = 0
 
-        #TODO: Remove Outliers
-        #TODO: Convert units to mm
-
-
-
         for i in range(len(self.our_images)):
             our_image = torch.tensor(self.our_images[i] * 1000, dtype=torch.float32)
             gt_image = torch.tensor(self.gt_images[i] * 1000, dtype=torch.float32)
-            # inv_our_image = 1.0 / (our_image + 1e-6)
-            # inv_gt_image = 1.0 / (gt_image + 1e-6)
 
+            #note that these images were originally in m and we convert them
+            #to mm for loss calculations
+
+
+            #convert to km for inverse loss calculations
             inv_our_image = 1e+6 / (our_image + 1e-6)
             inv_gt_image = 1e+6 / (gt_image + 1e-6)    
 
