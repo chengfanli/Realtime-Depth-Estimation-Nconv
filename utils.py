@@ -66,7 +66,7 @@ def calculate_loss_multi_resolution(reconstructed_img, target_img, use_gradient_
     for img in reconstructed_img:
         img_resized = F.interpolate(img, size=(480, 640), mode='bilinear', align_corners=False)
 
-        loss_all += calculate_loss(img_resized[0, :, :, :], target_img[0, :, :, :], use_gradient_loss)
+        loss_all += calculate_loss_w_mask(img_resized[0, :, :, :], target_img[0, :, :, :], use_gradient_loss)
 
     return loss_all / len(reconstructed_img)
 
@@ -142,8 +142,8 @@ def gradient_loss(input_img, predicted_img):
     return total_loss
 
 def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
-    mask = (target_img == 0)
-    reconstructed_img = reconstructed_img.masked_fill(mask, 0)
+    # mask = (target_img == 0)
+    # reconstructed_img = reconstructed_img.masked_fill(mask, 0)
 
     if (use_gradient_loss):
         loss_metric = torch.sqrt(F.mse_loss(reconstructed_img, target_img))    
@@ -157,6 +157,24 @@ def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
         #return loss_gradient
         
     loss = F.mse_loss(reconstructed_img, target_img)
-
     rmse_loss = torch.sqrt(loss)
-    return rmse_loss
+    return loss
+
+# def calculate_loss_w_mask(reconstructed_img, target_img, use_gradient_loss):
+#     # Instead of forcibly masking out predicted depth:
+#     valid_mask = (target_img != 0)
+#     if use_gradient_loss:
+#         # Compare only over valid pixels
+#         loss_metric = torch.sqrt(F.mse_loss(
+#             reconstructed_img[valid_mask], 
+#             target_img[valid_mask]
+#         ))
+#         loss_grad   = gradient_loss(target_img, reconstructed_img)
+#         return 0.8 * loss_metric + 0.2 * loss_grad
+#     else:
+#         # Normal MSE only over valid pixels
+#         if valid_mask.any():
+#             loss = F.mse_loss(reconstructed_img[valid_mask], target_img[valid_mask])
+#             return loss
+#         else:
+#             return torch.tensor(0.0, device=target_img.device)  # no valid pixels

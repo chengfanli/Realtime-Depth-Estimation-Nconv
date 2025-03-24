@@ -14,19 +14,22 @@ import copy
 import matplotlib.pyplot as plt
 
 output_name = "Test"
-num_train_epoch = 20
+num_train_epoch = 40
 learning_rate = [1e-3]
 weight_decay = [1e-7]
 apply_mask = True
 add_noise = False
-use_gradient_loss = True
+use_gradient_loss = False
 use_plateau_lr_sched = True
 early_stopping = False
 
-def train_model(model, train_loader, val_loader, num_epoch, parameter, patience, device_str):
+load_from_checkpoint = False
+checkpoint_path = "./checkpoints/step1-rmse-less-than-0.18.pth.tar"
+
+def train_model(model, train_loader, val_loader, num_epoch, parameter, patience, device_str):        
     device = torch.device(device_str if device_str == 'cuda' and torch.cuda.is_available() else 'cpu')
     model.to(device)
-    #model = torch.compile(model)
+    model = torch.compile(model)
 
     loss_all, loss_index = [], []
     num_itration = 0
@@ -45,10 +48,10 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
     loss = 0
     loss_train = []
 
-    scaler = GradScaler()
+    scaler = torch.amp.GradScaler()
+  
+    torch.autograd.set_detect_anomaly(True)
 
-    #torch.autograd.set_detect_anomaly(True)
-    
     for epoch in range(num_epoch):
         model.train()
         loss_train = []
@@ -92,8 +95,8 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
 
             
             if (batch % (100 // train_loader.batch_size) == 0 and batch != 0):
-                print('Batch No. {0}'.format(batch))
                 t_end = time.time()
+                print(f"[Epoch {epoch+1}, Batch {batch}] loss: {loss.item():.4f}")
                 print('Delta time {0:.4f} seconds'.format(t_end - t_step))
                 t_step = time.time()
                 save_depth((estimated_depth[0, 0, :, :]).detach().type(torch.FloatTensor).cpu().numpy(), 'tmp/color_output.png')
@@ -156,15 +159,16 @@ def get_hyper_parameters(lr, wd):
 
 
 best_val_loss = float('inf')
-best_model = SETP1_NCONV()
+
+
 best_lr = 0
 best_wd = 0
 final_stats = {}
 for lr in learning_rate:
     for wd in weight_decay:
-        train_dataset = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'train', apply_mask, add_noise)
+        train_dataset = DataLoader_NYU('../datasets/nyuv2', 'train', apply_mask, add_noise)
         train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, pin_memory=True)
-        val_dataset = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'val', apply_mask, add_noise)
+        val_dataset = DataLoader_NYU('../datasets/nyuv2', 'val', apply_mask, add_noise)
         val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, pin_memory=True)
 
         print('Train size: ' + str(len(train_loader)))
@@ -173,6 +177,18 @@ for lr in learning_rate:
         print('Weight Decay: ' + str(wd))  
 
         model = SETP1_NCONV()
+        model = nn.DataParallel(model)
+        best_model = SETP1_NCONV()
+        if (load_from_checkpoint):
+            checkpoint = torch.load(checkpoint_path)
+            state_dict = checkpoint["state_dict"]
+
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                name = k[7:] if k.startswith("module.") else k
+                new_state_dict[name] = v
+            model.load_state_dict(new_state_dict, strict=False)
+        
         para_list, num_epoch, patience, device_str = get_hyper_parameters(lr, wd)
 
         new_model, val_loss, stats = train_model(model, train_loader, val_loader, num_epoch, para_list[0], patience, device_str)
