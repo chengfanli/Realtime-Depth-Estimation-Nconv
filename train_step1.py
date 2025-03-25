@@ -15,21 +15,21 @@ import matplotlib.pyplot as plt
 
 output_name = "Test"
 num_train_epoch = 40
-learning_rate = [1e-3]
+learning_rate = [1e-5]
 weight_decay = [1e-7]
 apply_mask = True
 add_noise = False
-use_gradient_loss = False
+use_gradient_loss = True
 use_plateau_lr_sched = True
 early_stopping = False
 
-load_from_checkpoint = False
+load_from_checkpoint = True
 checkpoint_path = "./checkpoints/step1-rmse-less-than-0.18.pth.tar"
 
 def train_model(model, train_loader, val_loader, num_epoch, parameter, patience, device_str):        
     device = torch.device(device_str if device_str == 'cuda' and torch.cuda.is_available() else 'cpu')
     model.to(device)
-    model = torch.compile(model)
+    #model = torch.compile(model)
 
     loss_all, loss_index = [], []
     num_itration = 0
@@ -73,7 +73,7 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
                 estimated_depth = model(depth)
                 if (estimated_depth.isnan().sum() > 0):
                     breakpoint()
-                loss = calculate_loss(estimated_depth, gt, use_gradient_loss)
+                loss = calculate_loss_silog(estimated_depth, gt)
                 
                 loss_all.append(loss.item())
                 loss_train.append(loss.item())

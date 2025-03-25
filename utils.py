@@ -15,6 +15,14 @@ def save_depth(depth_data, path):
     colored_depth = cv2.applyColorMap(depth_data_8bit, cv2.COLORMAP_INFERNO)
     cv2.imwrite(path, colored_depth)
 
+def save_rgb(rgb_data, path):
+    if (path.lower().endswith(".png")):
+        path = path[:-4]
+    rgb_normalized = cv2.normalize(rgb_data, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    rgb_normalized = rgb_normalized.transpose((1,2,0))
+    rgb_normalized = cv2.cvtColor(rgb_normalized, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(path + ".png", rgb_normalized)
+
 def get_performance(model, val_loader, device_str, use_gradient_loss):
     device = torch.device(device_str if device_str == 'cuda' and torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -66,7 +74,7 @@ def calculate_loss_multi_resolution(reconstructed_img, target_img, use_gradient_
     for img in reconstructed_img:
         img_resized = F.interpolate(img, size=(480, 640), mode='bilinear', align_corners=False)
 
-        loss_all += calculate_loss_w_mask(img_resized[0, :, :, :], target_img[0, :, :, :], use_gradient_loss)
+        loss_all += calculate_loss(img_resized[0, :, :, :], target_img[0, :, :, :], use_gradient_loss)
 
     return loss_all / len(reconstructed_img)
 
@@ -85,7 +93,7 @@ def get_performance_multi_resolution(model, val_loader, device_str, use_gradient
         gt = data['gt'].to(device)
         k = data['k'].to(device)
 
-        estimated_depths, _ = model(rgb, depth, rgb, depth)
+        estimated_depths = model(rgb, depth, rgb, depth)
         loss= calculate_loss_multi_resolution(estimated_depths, gt, use_gradient_loss)
         loss_all.append(loss.item())
 
@@ -158,7 +166,7 @@ def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
         
     loss = F.mse_loss(reconstructed_img, target_img)
     rmse_loss = torch.sqrt(loss)
-    return loss
+    return rmse_loss
 
 # def calculate_loss_w_mask(reconstructed_img, target_img, use_gradient_loss):
 #     # Instead of forcibly masking out predicted depth:
@@ -178,3 +186,29 @@ def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
 #             return loss
 #         else:
 #             return torch.tensor(0.0, device=target_img.device)  # no valid pixels
+
+# class SiLogLoss(nn.Module):
+#     def __init__(self, lambd=0.5):
+#         super().__init__()
+#         self.lambd = lambd
+
+#     def forward(self, pred, target, valid_mask):
+#         valid_mask = valid_mask.detach().bool()
+#         diff_log = torch.log(target[valid_mask]) - torch.log(pred[valid_mask])
+#         loss = torch.sqrt(torch.pow(diff_log, 2).mean() -
+#                           self.lambd * torch.pow(diff_log.mean(), 2))
+
+#         return loss
+
+def calculate_loss_silog(pred, target):
+        valid_mask = (target != 0)
+        lambd = 0.5
+
+        valid_mask = valid_mask.detach().bool()
+        diff_log = torch.log(target[valid_mask]) - torch.log(pred[valid_mask])
+        diff = torch.pow(diff_log, 2).mean() - lambd * torch.pow(diff_log.mean(), 2)
+        if (diff < 0 or diff.isnan().sum() > 0):
+            breakpoint()
+        loss = torch.sqrt(diff)
+
+        return loss

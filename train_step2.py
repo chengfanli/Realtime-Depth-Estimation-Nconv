@@ -12,16 +12,18 @@ from utils import (
     calculate_loss_multi_resolution, 
     get_performance_multi_resolution, 
     save_checkpoint,
-    save_depth
+    save_depth,
+    save_rgb
 )
 
 # Hyperparameters
 output_name = "baseline2_single"
 step1_checkpoint_name = "step1-rmse-less-than-0.18"
 num_train_epoch = 50
-learning_rate = [1e-3]
+learning_rate = [1e-2]
 weight_decay = [1e-7]
 patience = 5
+use_plateau_lr_sched = True
 
 use_gradient_loss = False
 
@@ -40,13 +42,21 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
 
     # Optimizer & Scheduler
     optim = get_optimizer(model, parameter["optim_type"], parameter["lr"], parameter["weight_decay"])
-    scheduler = torch.optim.lr_scheduler.LinearLR(optim, start_factor=1.0, end_factor=0, total_iters=num_epoch)
+    if use_plateau_lr_sched:
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, mode="min", factor=0.1, patience=patience)
+    else:
+        scheduler = torch.optim.lr_scheduler.LinearLR(optim, start_factor=1.0, end_factor=0, total_iters=num_epoch)
+
 
     print('----- Start Training -----')
     t_start = time.time()
 
     torch.autograd.set_detect_anomaly(True)
     for epoch in range(num_epoch):
+        if (epoch == 10):
+            print("Thawing step1")
+            model.freeze_step1(False)
+
         model.train()
         batch_losses = []
 
@@ -60,8 +70,7 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
             # Single call to forward
             estimated_depths = model(rgb, depth, rgb, depth)
 
-            loss = calculate_loss_multi_resolution(estimated_depths[0], gt, use_gradient_loss)
-            #breakpoint()
+            loss = calculate_loss_multi_resolution(estimated_depths, gt, use_gradient_loss)
             loss.backward()
             optim.step()
 
@@ -70,8 +79,10 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
             # Debug prints/images at lower frequency
             if batch_idx % 10 == 0 and batch_idx != 0:
                 print(f"[Epoch {epoch+1}, Batch {batch_idx}] loss: {loss.item():.4f}")
-                save_depth(estimated_depths[0][-1][0, 0].detach().cpu().numpy(), 'tmp/color_output.png')
-                save_depth((depth[0, 0, :, :]).detach().cpu().numpy(), 'tmp/color_sparse.png')
+                save_depth(estimated_depths[-1][-1][0].detach().cpu().numpy(), 'tmp/color_output.png')
+                np.save('tmp/depth_output.npy', estimated_depths[-1][-1][0].detach().cpu().numpy())
+                save_depth((depth[-1, 0, :, :]).detach().cpu().numpy(), 'tmp/color_sparse.png')
+                save_rgb(rgb[-1].detach().cpu().numpy(), 'tmp/color_rgb.png')
 
 
         # Average epoch loss
@@ -94,12 +105,15 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
         else:
             num_bad_epoch += 1
 
-        if num_bad_epoch >= patience:
-            print(f"Early stopping at epoch {epoch+1}. No improvement in {patience} epochs.")
+        if num_bad_epoch >= patience*3:
+            print(f"Early stopping at epoch {epoch+1}. No improvement in {patience*3} epochs.")
             break
 
         # Scheduler step
-        scheduler.step()
+        if use_plateau_lr_sched:
+            scheduler.step(val_loss)
+        else:
+            scheduler.step()
 
     t_end = time.time()
     print(f"Training took {(t_end - t_start)/60:.2f} minutes.")
@@ -121,7 +135,7 @@ def main():
     val_dataset   = DataLoader_NYU('../datasets/nyuv2', 'val',   use_mask=True, add_noise=False)
 
     # Try a larger batch size if memory allows:
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True)
     val_loader   = torch.utils.data.DataLoader(val_dataset,   batch_size=1, shuffle=False)
 
     # 2) Hyperparameter search (learning_rate, weight_decay)
@@ -139,9 +153,6 @@ def main():
             # Reinit model for each hyperparameter set
             from models.step2 import SETP2_BP_TRAIN
             model = SETP2_BP_TRAIN(step1_checkpoint_name)
-
-            # If multi-GPU on one machine
-            model = nn.DataParallel(model)
 
             # Prepare hyperparams
             param_dict = {

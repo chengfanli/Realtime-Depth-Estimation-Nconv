@@ -90,11 +90,17 @@ class DNET(nn.Module):
         xout, cout = self.nconv6(torch.cat((x23,x1), 1), torch.cat((c23,c1), 1))
 
         xout, cout = self.nconv7(xout, cout)
+        # xout[xout < 1e-6] = 1e-6
 
-        if xout.max() > 10000:
-            # Things have gone bad...
-            breakpoint()
+        # if xout.max() > 10000:
+        #     # Things have gone bad...
+        #     breakpoint()
             
+        # if xout.min() < 0:
+        #     # Things have gone bad...
+        #     breakpoint()
+        #     print(cout)
+
 
         return xout
 
