@@ -15,6 +15,14 @@ def save_depth(depth_data, path):
     colored_depth = cv2.applyColorMap(depth_data_8bit, cv2.COLORMAP_INFERNO)
     cv2.imwrite(path, colored_depth)
 
+def save_rgb(rgb_data, path):
+    if (path.lower().endswith(".png")):
+        path = path[:-4]
+    rgb_normalized = cv2.normalize(rgb_data, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    rgb_normalized = rgb_normalized.transpose((1,2,0))
+    rgb_normalized = cv2.cvtColor(rgb_normalized, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(path + ".png", rgb_normalized)
+
 def get_performance(model, val_loader, device_str, use_gradient_loss):
     device = torch.device(device_str if device_str == 'cuda' and torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -85,7 +93,7 @@ def get_performance_multi_resolution(model, val_loader, device_str, use_gradient
         gt = data['gt'].to(device)
         k = data['k'].to(device)
 
-        estimated_depths, _ = model(rgb, depth, rgb, depth)
+        estimated_depths = model(rgb, depth, rgb, depth)
         loss= calculate_loss_multi_resolution(estimated_depths, gt, use_gradient_loss)
         loss_all.append(loss.item())
 
@@ -97,11 +105,9 @@ def gradient_x(img):
         img = img.unsqueeze(0)
 
     sobel_kernel_x = torch.tensor(
-        [[[[1, 0, -1],
-           [2, 0, -2],
-           [1, 0, -1]]]], dtype=img.dtype, device=img.device
+        [[[[1, -1]]]], dtype=img.dtype, device=img.device
     )
-    grad_x = F.conv2d(img, sobel_kernel_x, padding=1)
+    grad_x = F.conv2d(img, sobel_kernel_x, padding='same')
     grad_x = grad_x.squeeze(0)
     return grad_x
 
@@ -111,12 +117,11 @@ def gradient_y(img):
         img = img.unsqueeze(0)
 
     sobel_kernel_y = torch.tensor(
-        [[[[1, 2, 1],
-           [0, 0, 0],
-           [-1, -2, -1]]]], dtype=img.dtype, device=img.device
+        [[[[1],
+           [-1]]]], dtype=img.dtype, device=img.device
     )
 
-    grad_y = F.conv2d(img, sobel_kernel_y, padding=1)
+    grad_y = F.conv2d(img, sobel_kernel_y, padding='same')
 
     grad_y = grad_y.squeeze(0)
     return grad_y
@@ -124,10 +129,19 @@ def gradient_y(img):
 
 def gradient_loss(input_img, predicted_img):
     diff = input_img - predicted_img
-
+    #diff = F.normalize(diff)
+    
     grad_x = gradient_x(diff)
     grad_y = gradient_y(diff)
     
+    # print('grad_x.min() =', grad_x.min())
+    # print('grad_x.max() =', grad_x.max())
+    # print('grad_x.sum() =', grad_x.sum())
+
+    # print('grad_y.min() =', grad_y.min())
+    # print('grad_y.max() =', grad_y.max())
+    # print('grad_y.sum() =', grad_y.sum())
+
     grad_x_loss = torch.abs(grad_x).mean()
     grad_y_loss = torch.abs(grad_y).mean()
     
@@ -136,16 +150,65 @@ def gradient_loss(input_img, predicted_img):
     return total_loss
 
 def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
-    mask = (target_img == 0)
-    reconstructed_img = reconstructed_img.masked_fill(mask, 0)
+    # mask = (target_img == 0)
+    # reconstructed_img = reconstructed_img.masked_fill(mask, 0)
 
     if (use_gradient_loss):
-        loss_metric = torch.sqrt(F.mse_loss(reconstructed_img, target_img))      
+        loss_metric = torch.sqrt(F.mse_loss(reconstructed_img, target_img))    
         #loss_metric = F.l1_loss(reconstructed_img, target_img)
-        loss_gradient = gradient_loss(target_img, reconstructed_img)
+        loss_gradient = torch.sqrt(gradient_loss(target_img, reconstructed_img))
 
-        return loss_metric * 0.8 + loss_gradient * 0.2
+        # print (f'loss_metric = {loss_metric}')
+        # print (f'loss_gradient = {loss_gradient}')
+
+        return loss_metric + loss_gradient * 5.0
+        #return loss_gradient
         
     loss = F.mse_loss(reconstructed_img, target_img)
-    #rmse_loss = torch.sqrt(loss)
-    return loss
+    rmse_loss = torch.sqrt(loss)
+    return rmse_loss
+
+# def calculate_loss_w_mask(reconstructed_img, target_img, use_gradient_loss):
+#     # Instead of forcibly masking out predicted depth:
+#     valid_mask = (target_img != 0)
+#     if use_gradient_loss:
+#         # Compare only over valid pixels
+#         loss_metric = torch.sqrt(F.mse_loss(
+#             reconstructed_img[valid_mask], 
+#             target_img[valid_mask]
+#         ))
+#         loss_grad   = gradient_loss(target_img, reconstructed_img)
+#         return 0.8 * loss_metric + 0.2 * loss_grad
+#     else:
+#         # Normal MSE only over valid pixels
+#         if valid_mask.any():
+#             loss = F.mse_loss(reconstructed_img[valid_mask], target_img[valid_mask])
+#             return loss
+#         else:
+#             return torch.tensor(0.0, device=target_img.device)  # no valid pixels
+
+# class SiLogLoss(nn.Module):
+#     def __init__(self, lambd=0.5):
+#         super().__init__()
+#         self.lambd = lambd
+
+#     def forward(self, pred, target, valid_mask):
+#         valid_mask = valid_mask.detach().bool()
+#         diff_log = torch.log(target[valid_mask]) - torch.log(pred[valid_mask])
+#         loss = torch.sqrt(torch.pow(diff_log, 2).mean() -
+#                           self.lambd * torch.pow(diff_log.mean(), 2))
+
+#         return loss
+
+def calculate_loss_silog(pred, target):
+        valid_mask = (target != 0)
+        lambd = 0.5
+
+        valid_mask = valid_mask.detach().bool()
+        diff_log = torch.log(target[valid_mask]) - torch.log(pred[valid_mask])
+        diff = torch.pow(diff_log, 2).mean() - lambd * torch.pow(diff_log.mean(), 2)
+        if (diff < 0 or diff.isnan().sum() > 0):
+            breakpoint()
+        loss = torch.sqrt(diff)
+
+        return loss

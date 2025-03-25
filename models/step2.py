@@ -34,11 +34,9 @@ class SETP2_BP_TRAIN(nn.Module):
             name = k[7:] if k.startswith("module.") else k
             new_state_dict[name] = v
         self.step1.load_state_dict(new_state_dict, strict=False)
-        
-        # Disable Training for the unguided module
-        for p in self.step1.parameters():            
-            p.requires_grad=False
 
+        self.freeze_step1(True)
+        
         self.rgb_encoder0 = RGBEncoder(3, 32, 1)
         self.rgb_encoder1 = RGBEncoder(32, 32, 2)
         self.rgb_encoder2 = RGBEncoder(32, 64, 2)
@@ -57,10 +55,17 @@ class SETP2_BP_TRAIN(nn.Module):
         self.fuse3 = FusionResolutionBlock(32, 32, 1)
         # self.fuse4 = FusionResolutionBlock(32, 32, 1)
             
+    def freeze_step1(self, freeze=True):
+        # Disable Training for the unguided module
+        for p in self.step1.parameters():            
+            p.requires_grad=(not freeze)
+
     def forward(self, rgb0, depth0, rgb1, depth1): 
         
-        sparse = self.step1(depth0, depth1)
-        rgb = torch.cat((rgb0, rgb1), dim=0)
+        sparse = self.step1(depth0)
+        # sparse = torch.cat((sparse, sparse), dim=0) # Hack
+        # rgb = torch.cat((rgb0, rgb1), dim=0)
+        rgb = rgb0
 
         rgb0 = self.rgb_encoder0(rgb)
         rgb1 = self.rgb_encoder1(rgb0) # 480 -> 240
@@ -74,7 +79,7 @@ class SETP2_BP_TRAIN(nn.Module):
         out_fusion3, out_depth3 = self.fuse3(rgb0, sparse, out_fusion2, out_depth2)
         # out_fusion4, out_depth4 = self.fuse4(rgb0, sparse, out_fusion3, out_depth3)
 
-        return [out_depth0[0:1], out_depth1[0:1], out_depth2[0:1], out_depth3[0:1]], [out_depth0[1:2], out_depth1[1:2], out_depth2[1:2], out_depth3[1:2]]
+        return out_depth0, out_depth1, out_depth2, out_depth3
 
 
 class SETP2_BP_EXPORT(nn.Module):
@@ -83,6 +88,7 @@ class SETP2_BP_EXPORT(nn.Module):
         super().__init__() 
 
         self.step1 = SETP1_NCONV()
+        self.step1 = self.step1.compile()
 
         # self.rgb_encoder0 = RGBEncoder(3, 32, 1)
         # self.rgb_encoder1 = RGBEncoder(32, 32, 2)

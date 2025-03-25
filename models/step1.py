@@ -30,23 +30,23 @@ class SETP1_NCONV(nn.Module):
 class DNET(nn.Module):
     def __init__(self, out_ch):
         super().__init__()
-
+ 
         pos_fn = "softplus"
-        # pos_fn = None
+        #pos_fn = None
         num_channels=8
 
-        self.nconv1 = NConv2d(1, num_channels, (5,5), pos_fn, 'p', padding=(2, 2))
-        self.nconv2 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding=(2, 2))
+        self.nconv1 = NConv2d(1, num_channels, (5,5), pos_fn, 'p', padding='same')
+        self.nconv2 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding='same')
 
-        self.nconv_down1 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding=(2, 2))
-        self.nconv_down2 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding=(2, 2))
-        self.nconv_down3 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding=(2, 2))
+        self.nconv_down1 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding='same')
+        self.nconv_down2 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding='same')
+        self.nconv_down3 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding='same')
 
-        self.nconv4 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding=(1, 1))
-        self.nconv5 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding=(1, 1))
-        self.nconv6 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding=(0, 0))
+        self.nconv4 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding='same')
+        self.nconv5 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding='same')
+        self.nconv6 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding='same')
 
-        self.nconv7 = NConv2d(num_channels, 1, (1,1), pos_fn, 'k')
+        self.nconv7 = NConv2d(num_channels, 1, (1,1), pos_fn, 'k', padding='same')
 
     def forward(self, S):
 
@@ -90,8 +90,19 @@ class DNET(nn.Module):
         xout, cout = self.nconv6(torch.cat((x23,x1), 1), torch.cat((c23,c1), 1))
 
         xout, cout = self.nconv7(xout, cout)
+        # xout[xout < 1e-6] = 1e-6
 
-        return xout[:, :, 1:481, 1:641]
+        # if xout.max() > 10000:
+        #     # Things have gone bad...
+        #     breakpoint()
+            
+        # if xout.min() < 0:
+        #     # Things have gone bad...
+        #     breakpoint()
+        #     print(cout)
+
+
+        return xout
 
 
 class NConv2d(_ConvNd):
@@ -100,7 +111,7 @@ class NConv2d(_ConvNd):
         # Call _ConvNd constructor
         super(NConv2d, self).__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, False, output_padding=(0, 0), groups=groups, bias=bias, padding_mode='zeros')
 
-        self.eps = 1e-7
+        self.eps = 1e-3
         self.pos_fn = pos_fn
         self.init_method = init_method
         
@@ -108,7 +119,7 @@ class NConv2d(_ConvNd):
         self.init_parameters()
 
         self.bnorm = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU()
+        self.activation = nn.ReLU()
         
         if self.pos_fn is not None :
             EnforcePos.apply(self, 'weight', pos_fn)
@@ -117,9 +128,9 @@ class NConv2d(_ConvNd):
         
         # Normalized Convolution
         denom = F.conv2d(conf, self.weight, None, self.stride,
-                        self.padding, self.dilation, self.groups)        
+                        self.padding, self.dilation, self.groups)
         nomin = F.conv2d(data*conf, self.weight, None, self.stride,
-                        self.padding, self.dilation, self.groups)        
+                        self.padding, self.dilation, self.groups)
         nconv = nomin / (denom+self.eps)
         
         
@@ -130,8 +141,8 @@ class NConv2d(_ConvNd):
         bias = bias.expand_as(nconv)
         nconv += bias
 
-        # nconv = self.bnorm(nconv)
-        # nconv = self.relu(nconv)
+        #nconv = self.bnorm(nconv)
+        #nconv = self.activation(nconv)
         
         # Propagate confidence
         cout = denom
@@ -141,7 +152,9 @@ class NConv2d(_ConvNd):
         k = self.weight
         k_sz = k.size()
         k = k.view(k_sz[0], -1)
-        s = torch.sum(k, dim=-1, keepdim=True)        
+        s = torch.sum(k, dim=-1, keepdim=True)   
+
+        #print(f"s = {s}") 
 
         cout = cout / s
         cout = cout.view(sz)
@@ -170,7 +183,6 @@ class NConv2d(_ConvNd):
             
         # Init bias
         self.bias = torch.nn.Parameter(torch.zeros(self.out_channels)+0.01)
-
 
 # Non-negativity enforcement class        
 class EnforcePos(object):
@@ -207,6 +219,8 @@ class EnforcePos(object):
             return F.softplus(p, beta=10)
         elif pos_fn == 'sigmoid':
             return F.sigmoid(p)
+        elif pos_fn == 'relu':
+            return F.relu(p)
         else:
             print('Undefined positive function!')
             return      

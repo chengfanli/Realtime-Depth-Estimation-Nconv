@@ -7,7 +7,7 @@ import math
 import numpy as np
 from collections import OrderedDict
 import torch.distributed as dist
-from einops.layers.torch import Rearrange
+#from einops.layers.torch import Rearrange
 from timm.models.layers import DropPath
 from torch.cuda.amp import custom_fwd, custom_bwd
 import functools
