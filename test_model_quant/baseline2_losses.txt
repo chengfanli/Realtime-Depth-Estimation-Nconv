@@ -1,7 +1,7 @@
 
 Model: baseline2
 Avg L1 loss: 56.8606, Highest L1 loss: 278.3400
-Avg MSE loss: 13052.6561, Highest MSE loss: 52214.1250
-Avg RMSE loss: 107.1747, Highest RMSE loss: 228.5041
+Avg MSE loss: 56014.7422, Highest MSE loss: 547358.3750
+Avg RMSE loss: 187.2425, Highest RMSE loss: 739.8367
 Avg iMAE loss: 8.2535, Highest iMAE loss: 23.2079
 Avg iRMSE loss: 29.3062, Highest iRMSE loss: 90.7656

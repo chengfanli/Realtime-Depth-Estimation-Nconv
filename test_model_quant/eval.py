@@ -89,8 +89,16 @@ class Evaluator():
         highest_imae_loss = 0
 
         for i in range(len(self.our_images)):
-            our_image = torch.tensor(self.our_images[i] * 1000, dtype=torch.float32)
-            gt_image = torch.tensor(self.gt_images[i] * 1000, dtype=torch.float32)
+            our_image = self.our_images[i]
+            #threshold by 100m
+            mask = our_image <= 100
+            our_image = our_image[mask]
+            gt_image = self.gt_images[i][mask]
+            #breakpoint()
+            our_image = torch.tensor(our_image * 1000, dtype=torch.float32)
+            gt_image = torch.tensor( gt_image * 1000, dtype=torch.float32)
+            
+            #gt_image = gt_image[mask]
 
             #note that these images were originally in m and we convert them
             #to mm for loss calculations
@@ -112,20 +120,21 @@ class Evaluator():
 
             loss = l1_loss_fn(our_image,gt_image)
             mse_loss = mse_loss_fn(our_image,gt_image)
+
             diff = our_image - gt_image
             mse_err = diff ** 2
             mse_filtered = self.remove_outliers(mse_err.numpy())
             mse = np.mean(mse_filtered)
 
 
-            #rmse_loss = torch.sqrt(mse_loss)
-            rmse_loss = np.sqrt(mse)
+            rmse_loss = torch.sqrt(mse_loss)
+            #rmse_loss = np.sqrt(mse)
             imae_loss = l1_loss_fn(inv_our_image, inv_gt_image)
             imse_loss = mse_loss_fn(inv_our_image,inv_gt_image)
             irmse_loss = torch.sqrt(imse_loss)
 
             avg_l1_loss += loss
-            avg_mse_loss += mse
+            avg_mse_loss += mse_loss
             avg_rmse_loss += rmse_loss
             avg_imae_loss += imae_loss
             avg_irmse_loss += irmse_loss
@@ -134,8 +143,8 @@ class Evaluator():
             if loss > highest_l1_loss:
                 highest_l1_loss = loss
 
-            if mse > highest_mse_loss:
-                highest_mse_loss = mse
+            if mse_loss > highest_mse_loss:
+                highest_mse_loss = mse_loss
 
             if rmse_loss > highest_rmse_loss:
                 highest_rmse_loss = rmse_loss
