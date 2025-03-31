@@ -61,6 +61,14 @@ class Evaluator():
         img[:, :20] = 0
         return img
 
+    def remove_outliers(self, diff):
+        if diff.size == 0:
+            return diff
+        
+        cleaned = diff[~np.isnan(diff)]
+        cleaned = cleaned[cleaned <= 1000000.0]
+        return cleaned
+
     def calculate_loss(self):
         l1_loss_fn = nn.L1Loss()
         #write own l1 loss
@@ -87,6 +95,8 @@ class Evaluator():
             #note that these images were originally in m and we convert them
             #to mm for loss calculations
 
+            #maybe don't convert them to mm right away?
+
 
             #convert to km for inverse loss calculations
             inv_our_image = 1e+6 / (our_image + 1e-6)
@@ -102,13 +112,20 @@ class Evaluator():
 
             loss = l1_loss_fn(our_image,gt_image)
             mse_loss = mse_loss_fn(our_image,gt_image)
-            rmse_loss = torch.sqrt(mse_loss)
+            diff = our_image - gt_image
+            mse_err = diff ** 2
+            mse_filtered = self.remove_outliers(mse_err.numpy())
+            mse = np.mean(mse_filtered)
+
+
+            #rmse_loss = torch.sqrt(mse_loss)
+            rmse_loss = np.sqrt(mse)
             imae_loss = l1_loss_fn(inv_our_image, inv_gt_image)
             imse_loss = mse_loss_fn(inv_our_image,inv_gt_image)
             irmse_loss = torch.sqrt(imse_loss)
 
             avg_l1_loss += loss
-            avg_mse_loss += mse_loss
+            avg_mse_loss += mse
             avg_rmse_loss += rmse_loss
             avg_imae_loss += imae_loss
             avg_irmse_loss += irmse_loss
@@ -117,8 +134,8 @@ class Evaluator():
             if loss > highest_l1_loss:
                 highest_l1_loss = loss
 
-            if mse_loss > highest_mse_loss:
-                highest_mse_loss = mse_loss
+            if mse > highest_mse_loss:
+                highest_mse_loss = mse
 
             if rmse_loss > highest_rmse_loss:
                 highest_rmse_loss = rmse_loss
