@@ -63,6 +63,7 @@ class Evaluator():
 
     def calculate_loss(self):
         l1_loss_fn = nn.L1Loss()
+        #write own l1 loss
         avg_l1_loss = 0
         highest_l1_loss = 0
 
@@ -91,6 +92,11 @@ class Evaluator():
             inv_our_image = 1e+6 / (our_image + 1e-6)
             inv_gt_image = 1e+6 / (gt_image + 1e-6)    
 
+            #remove smaller values based on threshold 
+            #do this based on some avegrage and std 
+            #outliers average +/- 3* std
+            #look into hard coding a minimum threshold
+            #remove all pixels larger than 10 m
 
 
 
