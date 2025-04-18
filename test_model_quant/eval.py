@@ -66,7 +66,7 @@ class Evaluator():
             return diff
         
         cleaned = diff[~np.isnan(diff)]
-        cleaned = cleaned[cleaned <= 1000000.0]
+        cleaned = cleaned[cleaned <= 1e8]
         return cleaned
 
     def calculate_loss(self):
@@ -78,6 +78,7 @@ class Evaluator():
         mse_loss_fn = nn.MSELoss()
         avg_mse_loss = 0
         highest_mse_loss = 0
+        highest_mse_loss_idx = -1
 
         avg_rmse_loss = 0
         highest_rmse_loss = 0
@@ -92,20 +93,20 @@ class Evaluator():
             our_image = self.our_images[i]
             #threshold by 100m
             mask = our_image <= 100
+            
+            gt_image = self.gt_images[i]
+            gt_image = gt_image[mask]
             our_image = our_image[mask]
-            gt_image = self.gt_images[i][mask]
-            #breakpoint()
+         
             our_image = torch.tensor(our_image * 1000, dtype=torch.float32)
             gt_image = torch.tensor( gt_image * 1000, dtype=torch.float32)
-            
-            #gt_image = gt_image[mask]
 
             #note that these images were originally in m and we convert them
             #to mm for loss calculations
 
             #maybe don't convert them to mm right away?
 
-
+            #breakpoint()
             #convert to km for inverse loss calculations
             inv_our_image = 1e+6 / (our_image + 1e-6)
             inv_gt_image = 1e+6 / (gt_image + 1e-6)    
@@ -121,14 +122,16 @@ class Evaluator():
             loss = l1_loss_fn(our_image,gt_image)
             mse_loss = mse_loss_fn(our_image,gt_image)
 
-            diff = our_image - gt_image
-            mse_err = diff ** 2
-            mse_filtered = self.remove_outliers(mse_err.numpy())
-            mse = np.mean(mse_filtered)
+            # diff = our_image - gt_image
+            # mse_err = diff ** 2
+            # mse_filtered = self.remove_outliers(mse_err.numpy())
+            # mse = np.mean(mse_filtered)
+
+            # mse_loss = mse
 
 
             rmse_loss = torch.sqrt(mse_loss)
-            #rmse_loss = np.sqrt(mse)
+            #rmse_loss = np.sqrt(mse_loss)
             imae_loss = l1_loss_fn(inv_our_image, inv_gt_image)
             imse_loss = mse_loss_fn(inv_our_image,inv_gt_image)
             irmse_loss = torch.sqrt(imse_loss)
@@ -145,6 +148,7 @@ class Evaluator():
 
             if mse_loss > highest_mse_loss:
                 highest_mse_loss = mse_loss
+                highest_mse_loss_idx = i
 
             if rmse_loss > highest_rmse_loss:
                 highest_rmse_loss = rmse_loss
@@ -166,7 +170,7 @@ class Evaluator():
         # Print overall losses
         print('Loss for curr samples:')
         print("Total samples:{}, Avg L1 loss:{:.4f}, Highest L1 loss:{:.4f}".format(len(self.our_images), avg_l1_loss, highest_l1_loss))
-        print("Total samples:{}, Avg MSE loss:{:.4f}, Highest MSE loss:{:.4f}".format(len(self.our_images), avg_mse_loss, highest_mse_loss))
+        print("Total samples:{}, Avg MSE loss:{:.4f}, Highest MSE loss:{:.4f}".format(len(self.our_images), avg_mse_loss, highest_mse_loss_idx))
         print("Total samples:{}, Avg RMSE loss:{:.4f}, Highest RMSE loss:{:.4f}".format(len(self.our_images), avg_rmse_loss, highest_rmse_loss))
         print("Total samples:{}, Avg iMAE loss:{:.4f}, Highest iMAE loss:{:.4f}".format(len(self.our_images), avg_imae_loss, highest_imae_loss))
         print("Total samples:{}, Avg iRMSE loss:{:.4f}, Highest iRMSE loss:{:.4f}".format(len(self.our_images), avg_irmse_loss, highest_irmse_loss))
