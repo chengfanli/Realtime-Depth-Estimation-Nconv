@@ -14,6 +14,7 @@ class DataLoader_NYU(Dataset):
         self.lidar_path = os.path.join(data_dir, mode, 'depth')
         self.rgb_path = os.path.join(data_dir, mode, 'img')
         self.mask_path = os.path.join(data_dir, 'mask')
+        
 
         self.depths = list(sorted(glob.iglob(self.depth_path + "/*.npy", recursive=True)))
         self.lidars = list(sorted(glob.iglob(self.lidar_path + "/*.npy", recursive=True)))

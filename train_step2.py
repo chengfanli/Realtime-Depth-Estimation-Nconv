@@ -18,8 +18,8 @@ from utils import (
 
 # Hyperparameters
 output_name = "baseline2_single"
-step1_checkpoint_name = "step1-rmse-less-than-0.18"
-num_train_epoch = 50
+step1_checkpoint_name = "Test"
+num_train_epoch = 2
 learning_rate = [1e-2]
 weight_decay = [1e-7]
 patience = 5
@@ -131,8 +131,8 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
 # Main driver code
 def main():
     # 1) Create dataset/loader ONCE, outside hyperparam loops
-    train_dataset = DataLoader_NYU('../datasets/nyuv2', 'train', use_mask=True, add_noise=False)
-    val_dataset   = DataLoader_NYU('../datasets/nyuv2', 'val',   use_mask=True, add_noise=False)
+    train_dataset = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'train', use_mask=True, add_noise=False)
+    val_dataset   = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'val',   use_mask=True, add_noise=False)
 
     # Try a larger batch size if memory allows:
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True)
