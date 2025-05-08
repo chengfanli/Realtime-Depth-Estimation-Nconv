@@ -89,6 +89,13 @@ class Evaluator():
         avg_imae_loss = 0
         highest_imae_loss = 0
 
+        l1_losses = []
+        mse_losses = []
+        rmse_losses = []
+        irmse_losses = []
+        imae_losses = []
+        
+
         for i in range(len(self.our_images)):
             our_image = self.our_images[i]
             #threshold by 100m
@@ -141,25 +148,33 @@ class Evaluator():
             avg_rmse_loss += rmse_loss
             avg_imae_loss += imae_loss
             avg_irmse_loss += irmse_loss
+
+            l1_losses.append(loss)
+            mse_losses.append(mse_loss)
+            rmse_losses.append(rmse_loss)
+            imae_losses.append(imae_loss)
+            irmse_losses.append(irmse_loss)
             
 
-            if loss > highest_l1_loss:
-                highest_l1_loss = loss
+            # if loss > highest_l1_loss:
+            #     highest_l1_loss = loss
 
-            if mse_loss > highest_mse_loss:
-                highest_mse_loss = mse_loss
-                highest_mse_loss_idx = i
+            # if mse_loss > highest_mse_loss:
+            #     highest_mse_loss = mse_loss
+            #     highest_mse_loss_idx = i
 
-            if rmse_loss > highest_rmse_loss:
-                highest_rmse_loss = rmse_loss
+            # if rmse_loss > highest_rmse_loss:
+            #     highest_rmse_loss = rmse_loss
 
-            if imae_loss > highest_imae_loss:
-                highest_imae_loss = imae_loss
+            # if imae_loss > highest_imae_loss:
+            #     highest_imae_loss = imae_loss
 
-            if irmse_loss > highest_irmse_loss:
-                highest_irmse_loss = irmse_loss
+            # if irmse_loss > highest_irmse_loss:
+            #     highest_irmse_loss = irmse_loss
             
-            print("Current sample:{}, L1 loss:{:.4f}, MSE loss:{:.4f}, RMSE loss:{:.4f}, iMAE loss:{:.4f}, iRMSE loss:{:.4f}".format(i, loss.item(), mse_loss.item(), rmse_loss.item(), imae_loss.item(), irmse_loss.item()))
+            #print("Current sample:{}, L1 loss:{:.4f}, MSE loss:{:.4f}, RMSE loss:{:.4f}, iMAE loss:{:.4f}, iRMSE loss:{:.4f}".format(i, loss.item(), mse_loss.item(), rmse_loss.item(), imae_loss.item(), irmse_loss.item()))
+
+
 
         avg_l1_loss /= len(self.our_images)
         avg_mse_loss /= len(self.our_images)
@@ -175,8 +190,76 @@ class Evaluator():
         print("Total samples:{}, Avg iMAE loss:{:.4f}, Highest iMAE loss:{:.4f}".format(len(self.our_images), avg_imae_loss, highest_imae_loss))
         print("Total samples:{}, Avg iRMSE loss:{:.4f}, Highest iRMSE loss:{:.4f}".format(len(self.our_images), avg_irmse_loss, highest_irmse_loss))
 
+        return l1_losses, mse_losses, rmse_losses, imae_losses, irmse_losses
+        
+
+    def avg_metrics(self, l1_losses, mse_losses, rmse_losses, imae_losses, irmse_losses):
+        avg_l1_loss = 0
+        highest_l1_loss = 0
+
+        avg_mse_loss = 0
+        highest_mse_loss = 0
+        highest_mse_loss_idx = -1
+
+        avg_rmse_loss = 0
+        highest_rmse_loss = 0
+
+        avg_irmse_loss = 0
+        highest_irmse_loss = 0
+
+        avg_imae_loss = 0
+        highest_imae_loss = 0
+
+        n = len(l1_losses)
+
+        for i in range(n):
+            l1_loss = l1_losses[i]
+            mse = mse_losses[i]
+            rmse = rmse_losses[i]
+            imae = imae_losses[i]
+            irmse = irmse_losses[i]
+
+            avg_l1_loss += l1_loss
+            avg_mse_loss += mse
+            avg_rmse_loss += rmse
+            avg_imae_loss += imae
+            avg_irmse_loss += irmse
+
+            if l1_loss > highest_l1_loss:
+                highest_l1_loss = l1_loss
+
+            if mse > highest_mse_loss:
+                highest_mse_loss = mse
+                highest_mse_loss_idx = i
+
+            if rmse > highest_rmse_loss:
+                highest_rmse_loss = rmse
+
+            if imae > highest_imae_loss:
+                highest_imae_loss = imae
+
+            if irmse > highest_irmse_loss:
+                highest_irmse_loss = irmse
+        
+        avg_l1_loss /= n
+        avg_mse_loss /= n
+        avg_rmse_loss /= n
+        avg_irmse_loss /= n
+        avg_imae_loss /= n
+
         return avg_l1_loss, highest_l1_loss, avg_mse_loss, highest_mse_loss, avg_rmse_loss, highest_rmse_loss, avg_imae_loss, highest_imae_loss, avg_irmse_loss, highest_irmse_loss
     
+
+
+
+        
+
+    def highest_outliers(self, losses, top):
+        rmse_losses = np.array(losses)
+        top_k = top
+        top_k_indices = np.argsort(rmse_losses)[-top_k:][::-1]
+        return top_k_indices
+
     def load_depth_from_binary(self, file_path):
         """
         Load a depth map from a binary file.

@@ -14,9 +14,12 @@ import copy
 import os
 from scipy.ndimage import median_filter
 from models.without_step1.step1 import SETP1_NCONV as step_1
+import matplotlib.pyplot as plt
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 #Modify this
-checkpoint_path = "baseline2"
+checkpoint_path = "master_baseline"
 output_folder = "ours"
 
 test_dataset = TEST_DataLoader_NYU('/oscar/data/jtompki1/cli277/new_spot_data', '1')
@@ -27,7 +30,7 @@ test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 if checkpoint_path == "without_step1":
     model = step2_without_step1()
 
-elif checkpoint_path == "without_mask" or checkpoint_path == "baseline2"  :
+elif checkpoint_path == "without_mask" or checkpoint_path == "baseline2" or checkpoint_path == "master_baseline"  :
     model = step2_without_mask()
 
 elif checkpoint_path == "Test":
@@ -105,8 +108,8 @@ for batch, data in enumerate(test_loader):
 
 bin_path = "./{}/{}/".format(output_folder, checkpoint_path)
 eval = Evaluator(bin_path)
-avg_l1_loss, highest_l1_loss, avg_mse_loss, highest_mse_loss, avg_rmse_loss, highest_rmse_loss, avg_imae_loss, highest_imae_loss, avg_irmse_loss, highest_irmse_loss = eval.calculate_loss()
-
+l1_losses, mse_losses, rmse_losses, imae_losses, irmse_losses = eval.calculate_loss()
+avg_l1_loss, highest_l1_loss, avg_mse_loss, highest_mse_loss, avg_rmse_loss, highest_rmse_loss, avg_imae_loss, highest_imae_loss, avg_irmse_loss, highest_irmse_loss = eval.avg_metrics(l1_losses, mse_losses, rmse_losses, imae_losses, irmse_losses)
 model_name = f"{checkpoint_path}_losses.txt"
 
 # Prepare the loss data as a string
@@ -125,3 +128,54 @@ with open(file_path, "w") as file:
     file.write(loss_data)
 
 print(f"Loss data saved to: {file_path}")
+
+l1_i = eval.highest_outliers(l1_losses, 10)
+# mse_i = eval.highest_outliers(mse_losses)
+# rmse_i = eval.highest_outliers(rmse_losses)
+# imae_i = eval.highest_outliers(imae_losses)
+# irmse_i = eval.highest_outliers(irmse_losses)
+
+def visualize_comparison(gt_path, pred_path, loss_value, save_path):
+    gt = plt.imread(gt_path)
+    pred = plt.imread(pred_path)
+    
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].imshow(gt, cmap='inferno')
+    axes[0].set_title('Ground Truth')
+    axes[0].axis('off')
+
+    axes[1].imshow(pred, cmap='inferno')
+    axes[1].set_title('Prediction')
+    axes[1].axis('off')
+
+    plt.suptitle(f'Loss: {loss_value:.4f}')
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+
+output_dir = "loss_debug_visuals"
+os.makedirs(output_dir, exist_ok=True)
+comparison_images = []
+
+for idx in l1_i:
+    gt_image = f"temporary_eval_output/gt_image_{idx}.png"
+    pred_image = f"temporary_eval_output/our_image_{idx}.png"
+    save_image = os.path.join(output_dir, f"comparison_{idx}.png")
+
+    visualize_comparison(gt_image, pred_image, rmse_losses[idx], save_image)
+    comparison_images.append((rmse_losses[idx], save_image))
+
+
+comparison_images.sort(key=lambda x: x[0], reverse=True)
+
+# Then generate the PDF
+pdf_path = "loss_debug_report.pdf"
+c = canvas.Canvas(pdf_path, pagesize=letter)
+
+for loss, img_path in comparison_images:
+    c.setFont("Helvetica", 12)
+    c.drawString(30, 750, f"Loss: {loss:.4f}")
+    c.drawImage(img_path, 30, 100, width=500, height=600, preserveAspectRatio=True)
+    c.showPage()
+
+c.save()
