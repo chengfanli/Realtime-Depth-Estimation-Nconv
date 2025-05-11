@@ -7,6 +7,7 @@ import numpy as np
 import os
 import random
 import matplotlib.pyplot as plt
+from scipy import ndimage
 
 TAG_FLOAT = 202021.25
 TAG_CHAR = 'PIEH'
@@ -108,6 +109,29 @@ class DataLoader_Sintel(Dataset):
     def __getitem__(self, idx):
         return self.get_item(idx)
     
+    def sobel_filter(self, image, thickness=1.5):
+        x_grad = ndimage.sobel(image, 0)
+        y_grad = ndimage.sobel(image, 1)
+        mag = np.sqrt(x_grad**2 + y_grad**2)
+        cropped_edge = self.supress_cropped_edge(mag, 21, (479-21))
+        print(thickness)
+        blurred_mag = ndimage.gaussian_filter(cropped_edge, sigma=thickness)
+        blurred_mag = blurred_mag / np.max(blurred_mag)
+
+        threshold = 0.1
+        print("This is the min and max value in our image")
+        print(np.min(blurred_mag), np.max(blurred_mag))
+        # blurred_mag[blurred_mag < threshold] = 0
+        binary_edge = (blurred_mag > threshold).astype(np.uint8)
+
+        return binary_edge
+    
+    def supress_cropped_edge(self, mag, top, bottom):
+        magc = mag
+        magc[top - 3: top + 3, :] = 0
+        magc[bottom - 3: bottom + 3, :] = 0
+        return magc
+    
     def get_item(self, idx):
         
 
@@ -169,12 +193,22 @@ class DataLoader_Sintel(Dataset):
 
 
         depth = torch.FloatTensor(depth)
-
-        mask = torch.rand_like(depth) < 0.8
-
-        masked_depth = depth.clone()
-        masked_depth[~mask] = 0
+        edge_image = self.sobel_filter(depth, thickness=1.0)
         
-        return depth, masked_depth
+        
+
+        # mask = torch.rand_like(depth) < 1.0
+        # edge_mask = edge_image > 0.0
+
+        # non_edge_mask = (torch.from_numpy(edge_image > 0.0).to(depth.device))
+        # masked_depth = depth.clone()
+        # masked_depth[~non_edge_mask] = 0  # same effect
+
+
+
+        # masked_depth = depth.clone()
+        # masked_depth[~edge_mask] = 0
+        
+        return depth, edge_image
 
 
