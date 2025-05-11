@@ -124,6 +124,9 @@ class DataLoader_Sintel(Dataset):
         # blurred_mag[blurred_mag < threshold] = 0
         binary_edge = (blurred_mag > threshold).astype(np.uint8)
 
+        print("This is the min and max value in our binary")
+        print(np.min(binary_edge), np.max(binary_edge))
+
         return binary_edge
     
     def supress_cropped_edge(self, mag, top, bottom):
@@ -193,11 +196,12 @@ class DataLoader_Sintel(Dataset):
 
 
         depth = torch.FloatTensor(depth)
-        edge_image = self.sobel_filter(depth, thickness=1.0)
+        edge_mask = self.sobel_filter(depth, thickness=1.0)
+        edge_mask = torch.from_numpy(edge_mask).bool().to(depth.device)
         
         
 
-        # mask = torch.rand_like(depth) < 1.0
+        mask = torch.rand_like(depth) < 0.5
         # edge_mask = edge_image > 0.0
 
         # non_edge_mask = (torch.from_numpy(edge_image > 0.0).to(depth.device))
@@ -206,9 +210,9 @@ class DataLoader_Sintel(Dataset):
 
 
 
-        # masked_depth = depth.clone()
-        # masked_depth[~edge_mask] = 0
+        masked_depth = depth.clone()
+        masked_depth[edge_mask] = 0
         
-        return depth, edge_image
+        return depth, masked_depth
 
 
