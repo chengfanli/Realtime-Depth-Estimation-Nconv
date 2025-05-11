@@ -123,15 +123,15 @@ class DataLoader_Sintel(Dataset):
 
 
 
-        tp = rgb.shape[1] - self.height
-        lp = (rgb.shape[2] - self.width) // 2
-        rgb = rgb[:, tp:tp + self.height, lp:lp + self.width]
-        #is my depth okay?
-        print(f"Depth shape before slicing: {depth.shape}")
-        depth = depth[tp:tp + self.height, lp:lp + self.width]
-        gt = gt[:, tp:tp + self.height, lp:lp + self.width]
-        k[0, 2] -= lp
-        k[1, 2] -= tp
+        # tp = rgb.shape[1] - self.height
+        # lp = (rgb.shape[2] - self.width) // 2
+        # rgb = rgb[:, tp:tp + self.height, lp:lp + self.width]
+        # #is my depth okay?
+        # print(f"Depth shape before slicing: {depth.shape}")
+        # depth = depth[tp:tp + self.height, lp:lp + self.width]
+        # gt = gt[:, tp:tp + self.height, lp:lp + self.width]
+        # k[0, 2] -= lp
+        # k[1, 2] -= tp
 
         # if (self.use_mask):
         #     depth = self.apply_random_mask(self.depths[index])
@@ -157,9 +157,20 @@ class DataLoader_Sintel(Dataset):
         assert width > 0 and height > 0 and size > 1 and size < 100000000, ' depth_read:: Wrong input size (width = {0}, height = {1}).'.format(width,height)
         depth = np.fromfile(f,dtype=np.float32,count=-1).reshape((height,width))
 
+        print(depth.shape)
+        #
+        x_start = (1024 - 640) // 2
+        depth = depth[:, x_start:x_start + 640]
+        depth = np.pad(depth, ((22, 22), (0, 0)), mode='constant', constant_values=0)
+        print(depth.shape)
+
+
+
+
+
         depth = torch.FloatTensor(depth)
 
-        mask = torch.rand_like(depth) < 0.3
+        mask = torch.rand_like(depth) < 0.8
 
         masked_depth = depth.clone()
         masked_depth[~mask] = 0
