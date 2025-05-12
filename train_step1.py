@@ -15,9 +15,9 @@ import copy
 import matplotlib.pyplot as plt
 
 output_name = "overfit_step1"
-num_train_epoch = 100
-learning_rate = [1e-5]
-weight_decay = [1e-7]
+num_train_epoch = 50
+learning_rate = [1e-3]
+weight_decay = [0]
 apply_mask = True
 add_noise = False
 use_gradient_loss = True
@@ -97,7 +97,8 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
             # loss_train.append(np.sqrt(loss.item()))
 
             
-            if (batch % (100 // train_loader.batch_size) == 0 and batch != 0):
+            # if (batch % (100 // train_loader.batch_size) == 0 and batch != 0):
+            if (epoch > 98):
                 t_end = time.time()
                 print(f"[Epoch {epoch+1}, Batch {batch}] loss: {loss.item():.4f}")
                 print('Delta time {0:.4f} seconds'.format(t_end - t_step))

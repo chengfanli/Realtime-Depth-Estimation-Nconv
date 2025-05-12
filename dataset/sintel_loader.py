@@ -114,18 +114,18 @@ class DataLoader_Sintel(Dataset):
         y_grad = ndimage.sobel(image, 1)
         mag = np.sqrt(x_grad**2 + y_grad**2)
         cropped_edge = self.supress_cropped_edge(mag, 21, (479-21))
-        print(thickness)
+        # print(thickness)
         blurred_mag = ndimage.gaussian_filter(cropped_edge, sigma=thickness)
         blurred_mag = blurred_mag / np.max(blurred_mag)
 
         threshold = 0.1
-        print("This is the min and max value in our image")
-        print(np.min(blurred_mag), np.max(blurred_mag))
+        # print("This is the min and max value in our image")
+        # print(np.min(blurred_mag), np.max(blurred_mag))
         # blurred_mag[blurred_mag < threshold] = 0
         binary_edge = (blurred_mag > threshold).astype(np.uint8)
 
-        print("This is the min and max value in our binary")
-        print(np.min(binary_edge), np.max(binary_edge))
+        # print("This is the min and max value in our binary")
+        # print(np.min(binary_edge), np.max(binary_edge))
 
         return binary_edge
     
@@ -172,10 +172,10 @@ class DataLoader_Sintel(Dataset):
         #     depth = self.apply_random_noise(self.depths[index])
 
         # depth = self.preprocess_depth(self.depths[index], self.use_mask, self.add_noise)
-        print("Depth shape, Sentil")
-        print(depth.shape)
-        print("rgb_shape, Sentil")
-        print(rgb.shape)
+        # print("Depth shape, Sentil")
+        # print(depth.shape)
+        # print("rgb_shape, Sentil")
+        # print(rgb.shape)
 
 
         sample = {'rgb': rgb, 'depth': depth, 'gt': gt, 'k': k}
@@ -206,12 +206,12 @@ class DataLoader_Sintel(Dataset):
         assert width > 0 and height > 0 and size > 1 and size < 100000000, ' depth_read:: Wrong input size (width = {0}, height = {1}).'.format(width,height)
         depth = np.fromfile(f,dtype=np.float32,count=-1).reshape((height,width))
 
-        print(depth.shape)
+        # print(depth.shape)
         #
         x_start = (1024 - 640) // 2
         depth = depth[:, x_start:x_start + 640]
         depth = np.pad(depth, ((22, 22), (0, 0)), mode='constant', constant_values=0)
-        print(depth.shape)
+        # print(depth.shape)
 
 
 

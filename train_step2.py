@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from dataset.nyuloader import DataLoader_NYU
+from dataset.sintel_loader import DataLoader_Sintel
 from utils import (
     get_optimizer, 
     calculate_loss_multi_resolution, 
@@ -18,14 +19,14 @@ from utils import (
 
 # Hyperparameters
 output_name = "baseline2_single"
-step1_checkpoint_name = "Test"
-num_train_epoch = 2
+step1_checkpoint_name = "overfit_step1"
+num_train_epoch = 200
 learning_rate = [1e-2]
-weight_decay = [1e-7]
+weight_decay = [0]
 patience = 5
 use_plateau_lr_sched = True
 
-use_gradient_loss = False
+use_gradient_loss = True
 
 def train_model(model, train_loader, val_loader, num_epoch, parameter, patience, device_str):
     device = torch.device(device_str if (device_str == 'cuda' and torch.cuda.is_available()) else 'cpu')
@@ -53,9 +54,9 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
 
     torch.autograd.set_detect_anomaly(True)
     for epoch in range(num_epoch):
-        if (epoch == 10):
-            print("Thawing step1")
-            model.freeze_step1(False)
+        # if (epoch == 10):
+        #     print("Thawing step1")
+        #     model.freeze_step1(False)
 
         model.train()
         batch_losses = []
@@ -77,7 +78,7 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
             batch_losses.append(loss.item())
 
             # Debug prints/images at lower frequency
-            if batch_idx % 10 == 0 and batch_idx != 0:
+            if epoch > num_train_epoch -1:
                 print(f"[Epoch {epoch+1}, Batch {batch_idx}] loss: {loss.item():.4f}")
                 save_depth(estimated_depths[-1][-1][0].detach().cpu().numpy(), 'tmp/color_output.png')
                 np.save('tmp/depth_output.npy', estimated_depths[-1][-1][0].detach().cpu().numpy())
@@ -131,11 +132,12 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
 # Main driver code
 def main():
     # 1) Create dataset/loader ONCE, outside hyperparam loops
-    train_dataset = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'train', use_mask=True, add_noise=False)
-    val_dataset   = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'val',   use_mask=True, add_noise=False)
+    overfit_samples = [0,89,67,1000, 1063]
+    train_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', True, True, overfit_samples=overfit_samples)
+    val_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', True, True, overfit_samples=overfit_samples)
 
     # Try a larger batch size if memory allows:
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
     val_loader   = torch.utils.data.DataLoader(val_dataset,   batch_size=1, shuffle=False)
 
     # 2) Hyperparameter search (learning_rate, weight_decay)
