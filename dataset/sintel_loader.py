@@ -145,11 +145,16 @@ class DataLoader_Sintel(Dataset):
 
         rgb = self.get_rgb(rgb_path)  # Shape (C, H, W)
         gt, depth = self.get_depth(depth_path)  # Shape (H, W)
+        depth = depth.unsqueeze(0).float()  # Shape [1, H, W]
+        gt = gt.unsqueeze(0).float()
 
         k = torch.FloatTensor(self.k)
 
+        #figure out rgb pre processing!
 
 
+
+        #what is this cropping doing?
         # tp = rgb.shape[1] - self.height
         # lp = (rgb.shape[2] - self.width) // 2
         # rgb = rgb[:, tp:tp + self.height, lp:lp + self.width]
@@ -167,12 +172,29 @@ class DataLoader_Sintel(Dataset):
         #     depth = self.apply_random_noise(self.depths[index])
 
         # depth = self.preprocess_depth(self.depths[index], self.use_mask, self.add_noise)
+        print("Depth shape, Sentil")
+        print(depth.shape)
+        print("rgb_shape, Sentil")
+        print(rgb.shape)
+
 
         sample = {'rgb': rgb, 'depth': depth, 'gt': gt, 'k': k}
         return sample
     
     def get_rgb(self, rgb_path):
-        return torch.FloatTensor(cv2.imread(rgb_path)).permute(2, 0, 1)
+        rgb = cv2.imread(rgb_path)  # (H, W, C) = (436, 1024, 3)
+
+        # Horizontal center crop (width: 1024 → 640)
+        x_start = (1024 - 640) // 2
+        rgb = rgb[:, x_start:x_start + 640, :]  # (436, 640, 3)
+
+        # Vertical padding (height: 436 → 480)
+        pad_top = (480 - 436) // 2
+        pad_bottom = 480 - 436 - pad_top
+        rgb = np.pad(rgb, ((pad_top, pad_bottom), (0, 0), (0, 0)), mode='constant', constant_values=0)  # (480, 640, 3)
+
+        # Convert to tensor: (C, H, W)
+        return torch.FloatTensor(rgb).permute(2, 0, 1)
     
     def get_depth(self, filename):
         f = open(filename,'rb')

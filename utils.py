@@ -47,6 +47,32 @@ def get_performance(model, val_loader, device_str, use_gradient_loss):
     val_loss = sum(loss_all) / len(loss_all)
     return val_loss
 
+def get_performance_sentil(model, val_loader, device_str, use_gradient_loss):
+    device = torch.device(device_str if device_str == 'cuda' and torch.cuda.is_available() else 'cpu')
+    model.to(device)
+
+    model.eval()
+
+    with torch.no_grad():
+        loss_all = []
+        for batch, data in enumerate(val_loader):
+            # if (batch % 50 == 0 and batch != 0):
+            #     print('Val Batch No. {0}'.format(batch))
+
+            #rgb = data['rgb'].to(device)
+            depth = data['depth'].to(device)
+            gt = data['gt'].to(device)
+            #k = data['k'].to(device)
+
+            estimated_depth = model(depth)
+            estimated_depth = crop_loss_margins(estimated_depth, 22, 22)
+            gt = crop_loss_margins(gt, 22, 22)
+            loss = calculate_loss(estimated_depth[0, :, :, :], gt[0, :, :, :], use_gradient_loss)
+            loss_all.append(loss.item())
+
+    val_loss = sum(loss_all) / len(loss_all)
+    return val_loss
+
 def save_checkpoint(model, epoch, checkpoint_dir, stats, name):
     """Save a checkpoint file to `checkpoint_dir`."""
     state = {
@@ -199,6 +225,12 @@ def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
 #                           self.lambd * torch.pow(diff_log.mean(), 2))
 
 #         return loss
+
+def crop_loss_margins(array, pad_top, pad_bottom):
+    if pad_bottom == 0:
+        return array[pad_top:, :, :]
+    else:
+        return array[pad_top:-pad_bottom, :, :]
 
 def calculate_loss_silog(pred, target):
         valid_mask = (target != 0)

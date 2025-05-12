@@ -14,8 +14,8 @@ import time
 import copy
 import matplotlib.pyplot as plt
 
-output_name = "Test"
-num_train_epoch = 2
+output_name = "overfit_step1"
+num_train_epoch = 100
 learning_rate = [1e-5]
 weight_decay = [1e-7]
 apply_mask = True
@@ -74,6 +74,8 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
                 estimated_depth = model(depth)
                 if (estimated_depth.isnan().sum() > 0):
                     breakpoint()
+                # estimated_depth = crop_loss_margins(estimated_depth, 22, 22)
+                # gt = crop_loss_margins(gt, 22, 22)
                 loss = calculate_loss_silog(estimated_depth, gt)
                 
                 loss_all.append(loss.item())
@@ -162,64 +164,68 @@ def get_hyper_parameters(lr, wd):
 best_val_loss = float('inf')
 overfit_samples = [0,89,67,1000, 1063]
 
-train_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
-dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+# train_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
+# dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+
+# train_dataset_nyu = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'train', apply_mask, add_noise)
+# train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, pin_memory=True)
+
 
 saved = "sample_visualizations"  # Directory to save the sample visualizations
 os.makedirs(saved, exist_ok=True)  # Create the main directory if it doesn't exist
 
-for idx, sample in enumerate(dataloader):
-    train_dataset.save_sample_images(sample, saved, idx)
+# for idx, sample in enumerate(dataloader):
+#     train_dataset.save_sample_images(sample, saved, idx)
 
 
 
 #         
 
 
-# best_lr = 0
-# best_wd = 0
-# final_stats = {}
-# for lr in learning_rate:
-#     for wd in weight_decay:
-#         train_dataset = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'train', apply_mask, add_noise)
-#         train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, pin_memory=True)
-#         val_dataset = DataLoader_NYU('/oscar/data/jtompki1/cli277/nyuv2/nyuv2', 'val', apply_mask, add_noise)
-#         val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, pin_memory=True)
+best_lr = 0
+best_wd = 0
+final_stats = {}
+for lr in learning_rate:
+    for wd in weight_decay:
+        train_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
+        train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True)
+        val_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
+        val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, pin_memory=True)
 
-#         print('Train size: ' + str(len(train_loader)))
-#         print('Val size: ' + str(len(val_loader)))  
-#         print('Learning Rate: ' + str(lr))
-#         print('Weight Decay: ' + str(wd))  
+        print('Train size: ' + str(len(train_loader)))
+        print('Val size: ' + str(len(val_loader)))  
+        print('Learning Rate: ' + str(lr))
+        print('Weight Decay: ' + str(wd))  
 
-#         model = SETP1_NCONV()
-#         model = nn.DataParallel(model)
-#         best_model = SETP1_NCONV()
-#         if (load_from_checkpoint):
-#             checkpoint = torch.load(checkpoint_path)
-#             state_dict = checkpoint["state_dict"]
+        model = SETP1_NCONV()
+        model = nn.DataParallel(model)
+        best_model = SETP1_NCONV()
+        if (load_from_checkpoint):
+            checkpoint = torch.load(checkpoint_path)
+            state_dict = checkpoint["state_dict"]
 
-#             new_state_dict = {}
-#             for k, v in state_dict.items():
-#                 name = k[7:] if k.startswith("module.") else k
-#                 new_state_dict[name] = v
-#             model.load_state_dict(new_state_dict, strict=False)
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                name = k[7:] if k.startswith("module.") else k
+                new_state_dict[name] = v
+            model.load_state_dict(new_state_dict, strict=False)
         
-#         para_list, num_epoch, patience, device_str = get_hyper_parameters(lr, wd)
+        para_list, num_epoch, patience, device_str = get_hyper_parameters(lr, wd)
 
-#         new_model, val_loss, stats = train_model(model, train_loader, val_loader, num_epoch, para_list[0], patience, device_str)
+        new_model, val_loss, stats = train_model(model, train_loader, val_loader, num_epoch, para_list[0], patience, device_str)
 
-#         if (val_loss < best_val_loss):
-#             best_model = copy.deepcopy(new_model)
-#             best_val_loss = val_loss
-#             best_lr = lr
-#             best_wd = wd
-#             final_stats = stats
+        if (val_loss < best_val_loss):
+            best_model = copy.deepcopy(new_model)
+            best_val_loss = val_loss
+            best_lr = lr
+            best_wd = wd
+            final_stats = stats
 
-# print('------------------------ Training Done ------------------------')
-# print('---------------------------------------------------------------')
-# print("Best validation loss(ALL): {:.4f}".format(best_val_loss))
-# print("Best learning rate(ALL): {:.4f}".format(best_lr))
-# print("Best weight decay(ALL): {:.4f}".format(best_wd))
-# print('---------------------------------------------------------------')
-# print('------------------------ Training Done ------------------------')
-# save_checkpoint(best_model, num_train_epoch, "./checkpoints", final_stats, output_name)
+print('------------------------ Training Done ------------------------')
+print('---------------------------------------------------------------')
+print("Best validation loss(ALL): {:.4f}".format(best_val_loss))
+print("Best learning rate(ALL): {:.4f}".format(best_lr))
+print("Best weight decay(ALL): {:.4f}".format(best_wd))
+print('---------------------------------------------------------------')
+print('------------------------ Training Done ------------------------')
+save_checkpoint(best_model, num_train_epoch, "./checkpoints", final_stats, output_name)
