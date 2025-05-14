@@ -15,14 +15,14 @@ import copy
 import matplotlib.pyplot as plt
 
 output_name = "overfit_step1"
-num_train_epoch = 50
-learning_rate = [1e-3]
+num_train_epoch = 500
+learning_rate = [5e-2]
 weight_decay = [0]
 apply_mask = True
 add_noise = False
 use_gradient_loss = True
 use_plateau_lr_sched = True
-early_stopping = False
+early_stopping = True
 
 load_from_checkpoint = False
 checkpoint_path = "./checkpoints/step1-rmse-less-than-0.18.pth.tar"
@@ -76,7 +76,8 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
                     breakpoint()
                 # estimated_depth = crop_loss_margins(estimated_depth, 22, 22)
                 # gt = crop_loss_margins(gt, 22, 22)
-                loss = calculate_loss_silog(estimated_depth, gt)
+                #loss = calculate_loss_silog(estimated_depth, gt)
+                loss = calculate_loss(estimated_depth, gt, use_gradient_loss)
                 
                 loss_all.append(loss.item())
                 loss_train.append(loss.item())
@@ -98,7 +99,7 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
 
             
             # if (batch % (100 // train_loader.batch_size) == 0 and batch != 0):
-            if (epoch > 98):
+            if (epoch > num_train_epoch - 2):
                 t_end = time.time()
                 print(f"[Epoch {epoch+1}, Batch {batch}] loss: {loss.item():.4f}")
                 print('Delta time {0:.4f} seconds'.format(t_end - t_step))
@@ -118,7 +119,7 @@ def train_model(model, train_loader, val_loader, num_epoch, parameter, patience,
         print('Validation')
         val_loss = get_performance(model, val_loader, device_str, use_gradient_loss)
         #sqrt_loss = np.sqrt(val_loss)
-        mse_loss = get_performance(model, val_loader, device_str, False)
+        mse_loss = get_performance(model, val_loader, device_str, use_gradient_loss)
         print("Validation loss: {:.4f}".format(val_loss))
         print("MSE loss: {:.4f}".format(mse_loss))
         # val_loss = sum(loss_train) / len(loss_train)
@@ -163,7 +164,7 @@ def get_hyper_parameters(lr, wd):
 
 
 best_val_loss = float('inf')
-overfit_samples = [0,89,67,1000, 1063]
+overfit_samples = [30, 0, 500, 1000]
 
 # train_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
 # dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
@@ -189,9 +190,9 @@ final_stats = {}
 for lr in learning_rate:
     for wd in weight_decay:
         train_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
-        train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False, pin_memory=True)
         val_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
-        val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, pin_memory=True)
+        val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, pin_memory=True)
 
         print('Train size: ' + str(len(train_loader)))
         print('Val size: ' + str(len(val_loader)))  

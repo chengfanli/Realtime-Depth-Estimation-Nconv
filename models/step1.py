@@ -33,7 +33,7 @@ class DNET(nn.Module):
  
         pos_fn = "softplus"
         #pos_fn = None
-        num_channels=8
+        num_channels=16
 
         self.nconv1 = NConv2d(1, num_channels, (5,5), pos_fn, 'p', padding='same')
         self.nconv2 = NConv2d(num_channels, num_channels, (5,5), pos_fn, 'p', padding='same')
@@ -45,6 +45,8 @@ class DNET(nn.Module):
         self.nconv4 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding='same')
         self.nconv5 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding='same')
         self.nconv6 = NConv2d(2*num_channels, num_channels, (3,3), pos_fn, 'p', padding='same')
+        #do a 3x3 nconv
+        self.nconv65 = NConv2d(num_channels, num_channels, (3,3), pos_fn, 'p', padding='same' )
 
         self.nconv7 = NConv2d(num_channels, 1, (1,1), pos_fn, 'k', padding='same')
 
@@ -88,6 +90,7 @@ class DNET(nn.Module):
         x23 = F.interpolate(x23_ds, x0.size()[2:], mode='nearest') 
         c23 = F.interpolate(c23_ds, c0.size()[2:], mode='nearest') 
         xout, cout = self.nconv6(torch.cat((x23,x1), 1), torch.cat((c23,c1), 1))
+        xout, cout = self.nconv65(xout, cout)
 
         xout, cout = self.nconv7(xout, cout)
         # xout[xout < 1e-6] = 1e-6
