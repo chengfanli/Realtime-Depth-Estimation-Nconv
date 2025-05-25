@@ -189,7 +189,7 @@ def calculate_loss(reconstructed_img, target_img, use_gradient_loss):
 
         #make a linear interpolation, alpha blending of the two losses
         #run validation without gradient loss
-        print("Using both metric and grad loss")
+        # print("Using both metric and grad loss")
         return loss_metric + loss_gradient * 5.0
         # return loss_metric
         #return loss_gradient

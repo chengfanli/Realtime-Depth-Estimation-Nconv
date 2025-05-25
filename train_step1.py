@@ -15,7 +15,7 @@ import copy
 import matplotlib.pyplot as plt
 
 output_name = "overfit_step1"
-num_train_epoch = 500
+num_train_epoch = 200
 learning_rate = [5e-2]
 weight_decay = [0]
 apply_mask = True
@@ -162,6 +162,29 @@ def get_hyper_parameters(lr, wd):
     _device = 'cuda'
     return _para_list, _num_epoch, _patience, _device
 
+def best_model_output(best_model, output_set):
+    #takes in a set of images to produce temporary outputs for the best_model at the end of training
+    best_model.eval()
+    device_str = 'cuda'
+    device = torch.device(device_str if device_str == 'cuda' and torch.cuda.is_available() else 'cpu')
+
+    index = 0
+    for batch, data in enumerate(output_set):
+        depth = data['depth'].to(device, non_blocking=True)
+        gt = data['gt'].to(device, non_blocking=True)
+        estimated_depth = best_model(depth)
+        print('saving best models temporary output')
+        save_depth((estimated_depth[0, 0, :, :]).detach().cpu().numpy(), f'tmp_best_model/color_output_{index}.png')
+        save_depth((depth[0, 0, :, :]).detach().cpu().numpy(), f'tmp_best_model/color_sparse_{index}.png')
+        save_depth((gt[0, 0, :, :]).detach().cpu().numpy(), f'tmp_best_model/color_gt_{index}.png')
+        index += 1
+    print('Finished saving best model outputs')
+                
+
+
+
+
+
 
 best_val_loss = float('inf')
 overfit_samples = [30, 0, 500, 1000]
@@ -176,17 +199,10 @@ overfit_samples = [30, 0, 500, 1000]
 saved = "sample_visualizations"  # Directory to save the sample visualizations
 os.makedirs(saved, exist_ok=True)  # Create the main directory if it doesn't exist
 
-# for idx, sample in enumerate(dataloader):
-#     train_dataset.save_sample_images(sample, saved, idx)
-
-
-
-#         
-
-
 best_lr = 0
 best_wd = 0
 final_stats = {}
+final_model = SETP1_NCONV()
 for lr in learning_rate:
     for wd in weight_decay:
         train_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=overfit_samples)
@@ -218,10 +234,18 @@ for lr in learning_rate:
 
         if (val_loss < best_val_loss):
             best_model = copy.deepcopy(new_model)
+            final_model = copy.deepcopy(new_model)
             best_val_loss = val_loss
             best_lr = lr
             best_wd = wd
             final_stats = stats
+
+eval_samples = [30, 0, 500, 1000]
+tmp_eval_dataset = DataLoader_Sintel('/users/aidhant/data/cli277/sintel-tcd', 'training', apply_mask, add_noise, overfit_samples=eval_samples)
+tmp_dataloader = DataLoader(tmp_eval_dataset, batch_size=1, shuffle=True)
+best_model_output(final_model, tmp_dataloader)
+        
+
 
 print('------------------------ Training Done ------------------------')
 print('---------------------------------------------------------------')
